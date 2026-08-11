@@ -1,2 +1,8 @@
-// Client Supabase pour composants client. Implementation detaillee : etape 6.
-// TODO(etape 6): createBrowserClient depuis @supabase/ssr.
+// Client Supabase pour composants client (navigateur).
+import { createBrowserClient } from '@supabase/ssr';
+import { publicEnv } from '$lib/env';
+
+export const supabase = createBrowserClient(
+	publicEnv.PUBLIC_SUPABASE_URL,
+	publicEnv.PUBLIC_SUPABASE_ANON_KEY
+);
