@@ -1,7 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { getWatchProviderRegions, normalizeRegions } from '$lib/catalog';
+import { callTmdb } from '../../api-error';
 
-// TODO(etape 9): brancher sur src/lib/catalog (TMDB /watch/providers/regions).
 export const GET: RequestHandler = async () => {
-	return json({ countries: [] });
+	const response = await callTmdb(() => getWatchProviderRegions());
+	return json({ countries: normalizeRegions(response) });
 };
