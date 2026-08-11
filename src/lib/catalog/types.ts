@@ -1,4 +1,4 @@
-// Types du catalogue TMDB. Implementation detaillee : etape 7.
+// Types du catalogue TMDB (modeles internes, independants de la forme brute des reponses TMDB).
 
 export type MediaType = 'movie' | 'tv';
 
