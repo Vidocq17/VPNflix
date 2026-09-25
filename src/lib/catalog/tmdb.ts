@@ -86,6 +86,16 @@ export function searchTv(query: string): Promise<TmdbSearchResponse> {
 	return tmdbFetch<TmdbSearchResponse>('/search/tv', { query });
 }
 
+// -- Details d'un titre (etape 11 : hero poster/titre/resume de la page detail) --
+
+export function getMovieDetails(movieId: number): Promise<TmdbSearchResultRaw> {
+	return tmdbFetch<TmdbSearchResultRaw>(`/movie/${movieId}`);
+}
+
+export function getTvDetails(seriesId: number): Promise<TmdbSearchResultRaw> {
+	return tmdbFetch<TmdbSearchResultRaw>(`/tv/${seriesId}`);
+}
+
 // -- Watch providers d'un titre --
 
 export function getMovieWatchProviders(movieId: number): Promise<TmdbWatchProvidersResponse> {

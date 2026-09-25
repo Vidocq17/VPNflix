@@ -1,9 +1,11 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { getWatchProviderRegions, normalizeRegions } from '$lib/catalog';
-import { callTmdb } from '../../api-error';
+import { BadRequest, callTmdb, publicHandler } from '$lib/server/response';
+import { noParamsSchema, parse, searchParamsObject } from '$lib/security/validation';
 
-export const GET: RequestHandler = async () => {
+export const GET = publicHandler('config', 120, async ({ url }) => {
+	const raw = searchParamsObject(url.searchParams);
+	if (!raw || !parse(noParamsSchema, raw)) throw new BadRequest();
 	const response = await callTmdb(() => getWatchProviderRegions());
 	return json({ countries: normalizeRegions(response) });
-};
+});

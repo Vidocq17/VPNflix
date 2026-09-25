@@ -1,0 +1,57 @@
+import { describe, expect, it } from 'vitest';
+import { isRateLimited } from './rate-limit';
+import { parse, searchParamsObject, searchSchema, watchProvidersSchema } from './validation';
+
+describe('searchSchema', () => {
+	it('accepte une requete valide, type par defaut all, trim', () => {
+		expect(parse(searchSchema, { query: '  ab ' })).toEqual({ query: 'ab', type: 'all' });
+	});
+	it.each([{}, { query: 'a' }, { query: ' a ' }, { query: 'x'.repeat(81) }])(
+		'rejette %j',
+		(raw) => {
+			expect(parse(searchSchema, raw as Record<string, string>)).toBeNull();
+		}
+	);
+	it('rejette type invalide et parametre inconnu', () => {
+		expect(parse(searchSchema, { query: 'abc', type: 'bad' })).toBeNull();
+		expect(parse(searchSchema, { query: 'abc', foo: '1' })).toBeNull();
+	});
+	it('rejette les parametres dupliques', () => {
+		expect(searchParamsObject(new URLSearchParams('query=ab&query=cd'))).toBeNull();
+	});
+});
+
+describe('watchProvidersSchema', () => {
+	const ok = { mediaType: 'movie', id: '27205' };
+	it('accepte et convertit', () => {
+		expect(parse(watchProvidersSchema, { ...ok, countries: 'FR, de', providers: '8,9' })).toEqual({
+			mediaType: 'movie',
+			id: 27205,
+			countries: ['FR', 'de'],
+			providers: [8, 9]
+		});
+	});
+	it.each([
+		{ ...ok, id: 'abc' },
+		{ ...ok, id: '0' },
+		{ ...ok, id: '-1' },
+		{ ...ok, id: '1.5' },
+		{ ...ok, mediaType: 'person' },
+		{ ...ok, countries: 'FRA' },
+		{ ...ok, providers: '8,x' },
+		{ ...ok, countries: Array(251).fill('FR').join(',') },
+		{ ...ok, providers: Array(101).fill('8').join(',') },
+		{ ...ok, extra: '1' }
+	])('rejette %j', (raw) => {
+		expect(parse(watchProvidersSchema, raw)).toBeNull();
+	});
+});
+
+describe('isRateLimited', () => {
+	it('bloque au-dela de la limite puis relache apres la fenetre', () => {
+		const t = 1_000_000;
+		expect([1, 2, 3].map(() => isRateLimited('k', 2, t))).toEqual([false, false, true]);
+		expect(isRateLimited('k', 2, t + 61_000)).toBe(false);
+		expect(isRateLimited('autre', 2, t)).toBe(false);
+	});
+});

@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import {
 	getMovieWatchProviders,
 	getTvWatchProviders,
@@ -7,18 +6,14 @@ import {
 	groupWatchProvidersByProvider,
 	normalizeRegions
 } from '$lib/catalog';
-import { badRequest, callTmdb } from '../../../../api-error';
+import { BadRequest, callTmdb, publicHandler } from '$lib/server/response';
+import { parse, searchParamsObject, watchProvidersSchema } from '$lib/security/validation';
 
-export const GET: RequestHandler = async ({ params, url }) => {
-	const { mediaType, id } = params;
-	if (mediaType !== 'movie' && mediaType !== 'tv') {
-		badRequest('Le parametre "mediaType" doit etre "movie" ou "tv".');
-	}
-
-	const titleId = Number(id);
-	if (!Number.isInteger(titleId) || titleId <= 0) {
-		badRequest('Le parametre "id" doit etre un entier positif.');
-	}
+export const GET = publicHandler('watch-providers', 60, async ({ params, url }) => {
+	const raw = searchParamsObject(url.searchParams);
+	const parsed = raw && parse(watchProvidersSchema, { ...raw, ...params });
+	if (!parsed) throw new BadRequest();
+	const { mediaType, id: titleId, countries, providers } = parsed;
 
 	const getProviders = mediaType === 'movie' ? getMovieWatchProviders : getTvWatchProviders;
 	const [providersResponse, regionsResponse] = await Promise.all([
@@ -35,9 +30,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		}))
 	}));
 
-	const countriesFilter = url.searchParams.get('countries');
-	if (countriesFilter) {
-		const allowed = new Set(countriesFilter.split(',').map((c) => c.trim().toUpperCase()));
+	if (countries) {
+		const allowed = new Set(countries.map((c) => c.toUpperCase()));
 		groups = groups
 			.map((group) => ({
 				...group,
@@ -46,11 +40,10 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			.filter((group) => group.countries.length > 0);
 	}
 
-	const providersFilter = url.searchParams.get('providers');
-	if (providersFilter) {
-		const allowed = new Set(providersFilter.split(',').map((p) => Number(p.trim())));
+	if (providers) {
+		const allowed = new Set(providers);
 		groups = groups.filter((group) => allowed.has(group.provider.id));
 	}
 
 	return json({ groups });
-};
+});

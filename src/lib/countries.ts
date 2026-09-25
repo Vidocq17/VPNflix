@@ -1,1 +1,1 @@
-// Utilitaires pays (favoris, tri, etc). Implementation detaillee : etapes suivantes.
+// Utilitaires pays (tri, etc). Implementation detaillee : etapes suivantes.

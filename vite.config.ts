@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import tailwindcss from '@tailwindcss/vite';
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-vercel';
+import { CSP_DIRECTIVES } from './src/lib/security/http';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
@@ -14,14 +15,13 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-			adapter: adapter()
+			adapter: adapter(),
+			csp: { mode: 'auto', directives: CSP_DIRECTIVES }
 		})
 	],
 	test: {
 		environment: 'node',
+		exclude: ['tests/e2e/**', 'node_modules/**'],
 		setupFiles: ['./src/test/setup.ts']
 	}
 });
