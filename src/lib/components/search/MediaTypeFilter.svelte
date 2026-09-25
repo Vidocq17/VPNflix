@@ -13,7 +13,7 @@
 	<legend class="sr-only">Type de titre</legend>
 	{#each options as option (option.value)}
 		<label
-			class="cursor-pointer rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-[#c4c5d9] transition has-[:checked]:border-[#2e5bff] has-[:checked]:bg-[#2e5bff]/20 has-[:checked]:text-[#e5e2e1]"
+			class="cursor-pointer rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-on-surface-variant transition has-[:checked]:border-primary-container has-[:checked]:bg-primary-container/20 has-[:checked]:text-on-surface"
 		>
 			<input
 				type="radio"

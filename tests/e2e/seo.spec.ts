@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('robots, sitemap, meta et pages legales', async ({ page, request }) => {
 	expect(await (await request.get('/robots.txt')).text()).toContain('Disallow: /api/');
 	const sitemap = await (await request.get('/sitemap.xml')).text();
-	for (const p of ['/legal', '/privacy']) expect(sitemap).toContain(p);
+	for (const p of ['/movies', '/series', '/legal', '/privacy']) expect(sitemap).toContain(p);
 	expect(sitemap).not.toContain('/api');
 
 	await page.goto('/');

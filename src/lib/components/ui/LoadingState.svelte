@@ -8,6 +8,8 @@
 <div
 	class="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-24 text-center"
 >
-	<div class="size-6 animate-spin rounded-full border-2 border-white/20 border-t-[#2e5bff]"></div>
-	<p class="text-sm text-[#c4c5d9]/70">{label}</p>
+	<div
+		class="size-6 animate-spin rounded-full border-2 border-white/20 border-t-primary-container"
+	></div>
+	<p class="text-sm text-on-surface-variant/70">{label}</p>
 </div>

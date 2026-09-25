@@ -25,7 +25,7 @@
 
 <div class="flex flex-col gap-8">
 	<div class="space-y-3">
-		<h3 class="text-sm font-semibold text-[#e5e2e1]">Type</h3>
+		<h3 class="text-xl font-bold text-on-surface">Type</h3>
 		<MediaTypeFilter value={type} />
 	</div>
 	<CountryFilter {countries} value={country} />

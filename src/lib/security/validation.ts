@@ -30,6 +30,32 @@ export const watchProvidersSchema = z.strictObject({
 	providers: csv(positiveInt, 100).optional()
 });
 
+export const popularSchema = z.strictObject({ type: mediaType });
+
+export const genresSchema = z.strictObject({ type: mediaType });
+
+const year = z
+	.string()
+	.regex(/^(19|20)\d{2}$/)
+	.transform(Number);
+
+export const discoverSchema = z
+	.strictObject({
+		type: mediaType,
+		genres: csv(positiveInt, 20).optional(),
+		yearFrom: year.optional(),
+		yearTo: year.optional(),
+		country: z
+			.string()
+			.regex(/^[A-Za-z]{2}$/)
+			.optional(),
+		providers: csv(positiveInt, 100).optional(),
+		exclude: csv(positiveInt, 200).optional(),
+		page: positiveInt.pipe(z.number().max(500)).optional()
+	})
+	.refine((v) => !(v.providers?.length || v.exclude?.length) || v.country) // par pays (watch_region)
+	.refine((v) => !v.yearFrom || !v.yearTo || v.yearFrom <= v.yearTo);
+
 export const noParamsSchema = z.strictObject({});
 
 /** Valide un objet de parametres ; `null` si invalide (l'appelant repond 400 generique). */

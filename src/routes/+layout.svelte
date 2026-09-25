@@ -2,8 +2,15 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+	import { excluded, favorites } from '$lib/persist.svelte';
 
 	let { children } = $props();
+	onMount(() => {
+		favorites.load();
+		excluded.load();
+		document.documentElement.dataset.ready = ''; // signal d'hydratation pour les tests e2e
+	});
 	const desc =
 		'Cherchez un film ou une serie et comparez les pays ou le titre est disponible sur les plateformes de streaming legales.';
 </script>

@@ -12,8 +12,8 @@
 	}: HTMLButtonAttributes & { variant?: 'primary' | 'secondary'; children?: Snippet } = $props();
 
 	const variants = {
-		primary: 'bg-[#2e5bff] text-white hover:bg-[#2e5bff]/90',
-		secondary: 'border border-white/10 bg-white/5 text-[#e5e2e1] hover:bg-white/10'
+		primary: 'bg-primary-container text-white hover:bg-primary-container/90',
+		secondary: 'border border-white/10 bg-white/5 text-on-surface hover:bg-white/10'
 	};
 </script>
 

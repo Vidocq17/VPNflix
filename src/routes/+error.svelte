@@ -8,8 +8,8 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<main class="mx-auto max-w-2xl px-5 pt-28 text-[#e5e2e1]">
+<main class="mx-auto max-w-2xl px-5 pt-28 text-on-surface">
 	<h1 class="text-2xl font-bold">Erreur {page.status}</h1>
 	<p class="mt-4">{page.error?.message}</p>
-	<a href={resolve('/')} class="mt-6 inline-block text-[#b8c3ff] underline">Retour a l'accueil</a>
+	<a href={resolve('/')} class="mt-6 inline-block text-primary underline">Retour a l'accueil</a>
 </main>

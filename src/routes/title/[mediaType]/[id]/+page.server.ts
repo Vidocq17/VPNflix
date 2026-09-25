@@ -4,8 +4,14 @@
 // Les watch providers, eux, passent par l'endpoint existant /api/title/.../watch-providers
 // comme demande dans etapes.md.
 import { error } from '@sveltejs/kit';
-import { getMovieDetails, getTvDetails, normalizeSearchResult } from '$lib/catalog';
-import type { ProviderAvailabilityGroup } from '$lib/catalog/types';
+import {
+	getMovieDetails,
+	getSimilar,
+	getTvDetails,
+	normalizeSearchResult,
+	normalizeSimilar
+} from '$lib/catalog';
+import type { CatalogSearchResult, ProviderAvailabilityGroup } from '$lib/catalog/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, fetch }) => {
@@ -38,5 +44,13 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		? (await providersResponse.json()).groups
 		: [];
 
-	return { title, groups };
+	// Similaires : une erreur TMDB masque simplement la section.
+	let similar: CatalogSearchResult[] = [];
+	try {
+		similar = normalizeSimilar(await getSimilar(mediaType, titleId), mediaType);
+	} catch {
+		// section masquee
+	}
+
+	return { title, groups, similar };
 };

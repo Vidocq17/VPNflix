@@ -1,22 +1,32 @@
-<!-- Champ de recherche principal par titre. Champ non controle (name="query") : la
-     soumission du <form> parent (methode GET) declenche la navigation SvelteKit qui
-     recharge +page.ts avec le nouveau parametre d'URL. -->
+<!-- Champ de recherche par titre (design Stitch). Champ non controle (name="query") : la
+     soumission du <form> parent (GET) recharge +page.ts. "hero" = grand champ avec bouton
+     integre (accueil) ; "bar" = pilule pleine largeur (page de resultats, Entree pour valider). -->
 <script lang="ts">
 	import Search from 'lucide-svelte/icons/search';
+	import Button from '$lib/components/ui/Button.svelte';
 
-	let { value = '' }: { value?: string } = $props();
+	let { value = '', variant = 'bar' }: { value?: string; variant?: 'hero' | 'bar' } = $props();
 </script>
 
-<div class="relative mx-auto w-full max-w-2xl">
-	<Search
-		class="pointer-events-none absolute left-5 top-1/2 size-5 -translate-y-1/2 text-[#c4c5d9]"
-	/>
+<div
+	class="relative flex w-full items-center border border-white/10 bg-white/5 backdrop-blur-2xl focus-within:ring-2 focus-within:ring-primary/50 {variant ===
+	'hero'
+		? 'max-w-xl rounded-xl p-2 shadow-2xl'
+		: 'rounded-full'}"
+>
+	<Search class="pointer-events-none ml-4 size-5 shrink-0 text-on-surface-variant" />
 	<input
 		type="search"
 		name="query"
 		{value}
 		placeholder="Chercher un film ou une serie..."
 		aria-label="Rechercher un titre"
-		class="w-full rounded-full border border-white/10 bg-white/5 py-4 pl-14 pr-6 text-lg text-[#e5e2e1] backdrop-blur-2xl transition placeholder:text-[#c4c5d9]/50 focus:outline-none focus:ring-2 focus:ring-[#2e5bff]/40"
+		class="w-full bg-transparent px-4 text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none {variant ===
+		'hero'
+			? 'py-3'
+			: 'py-5 text-xl'}"
 	/>
+	{#if variant === 'hero'}
+		<Button type="submit" class="accent-gradient px-6 hover:brightness-110">Rechercher</Button>
+	{/if}
 </div>

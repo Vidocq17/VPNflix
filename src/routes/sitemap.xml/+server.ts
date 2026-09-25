@@ -1,7 +1,7 @@
 import { publicEnv } from '$lib/env';
 
 // Pages publiques stables uniquement (pas d'API, pas de resultats de recherche).
-const PATHS = ['/', '/legal', '/privacy'];
+const PATHS = ['/', '/movies', '/series', '/legal', '/privacy'];
 
 export const GET = () => {
 	const base = publicEnv.PUBLIC_APP_URL.replace(/\/$/, '');

@@ -29,7 +29,7 @@
 		description="Essaie un autre titre ou verifie l'orthographe."
 	/>
 {:else}
-	<div class="grid grid-cols-2 gap-6 lg:grid-cols-3 xl:grid-cols-4">
+	<div class="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
 		{#each results as result (`${result.mediaType}-${result.id}`)}
 			<PosterCard {result} />
 		{/each}

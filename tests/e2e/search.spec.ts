@@ -5,8 +5,12 @@ test.beforeEach(({ page }) => page.route('https://image.tmdb.org/**', (r) => r.a
 
 test('recherche film puis selection -> providers groupes', async ({ page }) => {
 	await page.goto('/');
+	await expect(page.locator('html[data-ready]')).toBeAttached(); // hydrate
 	await page.getByLabel('Rechercher un titre').fill('inception');
-	await page.getByText('Films', { exact: true }).click();
+	await page.getByRole('button', { name: 'Rechercher' }).click();
+	await expect(page).toHaveURL(/query=inception/);
+	await expect(page.locator('html[data-ready]')).toBeAttached(); // hydrate
+	await page.locator('label', { hasText: 'Films' }).click();
 	await page.getByRole('button', { name: 'Rechercher' }).click();
 
 	await expect(page).toHaveURL(/type=movie/);
@@ -37,6 +41,7 @@ test('recherche serie', async ({ page }) => {
 
 test('filtres pays et provider (formulaire) et filtrage API', async ({ page, request }) => {
 	await page.goto('/?query=inception');
+	await expect(page.locator('html[data-ready]')).toBeAttached(); // hydrate
 	await page.getByLabel('Pays').selectOption('FR');
 	await page.getByText('Netflix', { exact: true }).click();
 	await page.getByRole('button', { name: 'Rechercher' }).click();

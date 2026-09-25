@@ -1,6 +1,7 @@
 // Normalisation des reponses TMDB en modeles internes. Fonctions pures, testees a l'etape 8.
 import type {
 	TmdbCountryProvidersRaw,
+	TmdbGenresResponse,
 	TmdbProviderListResponse,
 	TmdbProviderRaw,
 	TmdbRegionsResponse,
@@ -10,6 +11,8 @@ import type {
 } from './tmdb';
 import type {
 	CatalogSearchResult,
+	DiscoverFilters,
+	Genre,
 	ProviderAvailabilityGroup,
 	WatchCountry,
 	WatchProvider
@@ -127,4 +130,81 @@ export function normalizeProviderList(
 ): WatchProvider[] {
 	if (!response?.results) return [];
 	return sortProvidersByName(response.results.map(toWatchProvider));
+}
+
+export function normalizeGenres(response: TmdbGenresResponse | undefined): Genre[] {
+	return [...(response?.genres ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// TMDB plafonne discover a 500 pages.
+export const MAX_DISCOVER_PAGE = 500;
+
+/**
+ * Filtres -> parametres TMDB discover. Semantique : genres en ET ("," ) ; pays = watch_region
+ * (pays de disponibilite, comme la recherche) ; plateformes = with_watch_providers (OU) dans ce
+ * pays, ignorees sans pays (TMDB exige watch_region) ; pays seul = titres disponibles dans ce pays.
+ */
+export function buildDiscoverParams(
+	type: 'movie' | 'tv',
+	f: DiscoverFilters
+): Record<string, string> {
+	const dateKey = type === 'movie' ? 'primary_release_date' : 'first_air_date';
+	const p: Record<string, string> = { sort_by: 'popularity.desc', page: String(f.page) };
+	if (f.genres.length) p.with_genres = f.genres.join(',');
+	if (f.yearFrom) p[`${dateKey}.gte`] = `${f.yearFrom}-01-01`;
+	if (f.yearTo) p[`${dateKey}.lte`] = `${f.yearTo}-12-31`;
+	if (f.country) {
+		p.watch_region = f.country.toUpperCase();
+		if (f.providers.length) p.with_watch_providers = f.providers.join('|');
+		else p.with_watch_monetization_types = 'flatrate|free|ads|rent|buy';
+		if (f.exclude?.length) p.without_watch_providers = f.exclude.join('|');
+	}
+	return p;
+}
+
+// Ids TMDB des plateformes principales, dans l'ordre d'affichage : Netflix, Prime Video (x2),
+// Disney+, Max (x2), Apple TV+, Canal+, Paramount+, Crunchyroll, YouTube, Hulu.
+const MAIN_PROVIDER_IDS = [8, 119, 9, 337, 1899, 384, 350, 381, 531, 283, 192, 15];
+const mainRank = (id: number) => {
+	const i = MAIN_PROVIDER_IDS.indexOf(id);
+	return i === -1 ? MAIN_PROVIDER_IDS.length : i;
+};
+
+/**
+ * Liste de plateformes pour les filtres : fusionne les doublons de nom (TMDB a plusieurs ids pour
+ * une meme plateforme, ex. "Amazon Prime Video"), puis remonte les principales en tete ; le reste
+ * garde son ordre. L'entree gardee (id principal) porte tous les ids equivalents dans `ids` :
+ * les filtres par id doivent tous les envoyer (voir `expandProviderIds`).
+ */
+export function prioritizeProviders(providers: WatchProvider[]): WatchProvider[] {
+	const byName = new Map<string, WatchProvider>();
+	for (const p of providers) {
+		const key = p.name.trim().toLowerCase();
+		const kept = byName.get(key);
+		if (!kept) {
+			byName.set(key, { ...p, ids: [p.id] });
+			continue;
+		}
+		const ids = [...kept.ids!, p.id].sort((a, b) => a - b);
+		const id = ids.reduce((best, x) => (mainRank(x) < mainRank(best) ? x : best), ids[0]);
+		byName.set(key, { ...kept, id, ids });
+	}
+	// tri stable : hors principales, l'ordre d'origine est conserve
+	return [...byName.values()].sort((a, b) => mainRank(a.id) - mainRank(b.id));
+}
+
+/** Ids selectionnes (ids principaux du formulaire) -> tous les ids TMDB equivalents. */
+export function expandProviderIds(selected: string[], providers: WatchProvider[]): number[] {
+	const ids = new Map(providers.map((p) => [String(p.id), p.ids ?? [p.id]]));
+	return [...new Set(selected.flatMap((id) => ids.get(id) ?? [Number(id)]))];
+}
+
+/** Titres similaires : mediaType force (les reponses /similar n'ont pas de media_type), max 12. */
+export function normalizeSimilar(
+	response: TmdbSearchResponse | undefined,
+	mediaType: 'movie' | 'tv'
+): CatalogSearchResult[] {
+	return normalizeSearchResults(response)
+		.map((r) => ({ ...r, mediaType }))
+		.slice(0, 12);
 }

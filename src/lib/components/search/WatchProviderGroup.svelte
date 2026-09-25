@@ -22,15 +22,15 @@
 					class="h-full w-full object-cover"
 				/>
 			{:else}
-				<Tv class="size-5 text-[#c4c5d9]/60" />
+				<Tv class="size-5 text-on-surface-variant/60" />
 			{/if}
 		</div>
-		<h3 class="text-sm font-semibold text-[#e5e2e1]">{group.provider.name}</h3>
+		<h3 class="text-sm font-semibold text-on-surface">{group.provider.name}</h3>
 	</div>
 	<div class="flex flex-wrap gap-2">
 		{#each group.countries as country (country.code)}
 			<span
-				class="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-[#c4c5d9]/80"
+				class="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-on-surface-variant/80"
 			>
 				{country.name}
 			</span>

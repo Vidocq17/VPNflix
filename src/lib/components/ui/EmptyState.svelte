@@ -10,18 +10,18 @@
 
 {#if compact}
 	<div class="rounded-2xl border border-white/10 bg-white/5 px-6 py-8 text-center">
-		<p class="text-sm text-[#c4c5d9]/70">{title}</p>
+		<p class="text-sm text-on-surface-variant/70">{title}</p>
 		{#if description}
-			<p class="mt-1 text-sm text-[#c4c5d9]/60">{description}</p>
+			<p class="mt-1 text-sm text-on-surface-variant/60">{description}</p>
 		{/if}
 	</div>
 {:else}
 	<div
 		class="flex flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-24 text-center"
 	>
-		<p class="text-lg font-semibold text-[#e5e2e1]">{title}</p>
+		<p class="text-lg font-semibold text-on-surface">{title}</p>
 		{#if description}
-			<p class="text-sm text-[#c4c5d9]/60">{description}</p>
+			<p class="text-sm text-on-surface-variant/60">{description}</p>
 		{/if}
 	</div>
 {/if}

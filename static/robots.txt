@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 
 # A REMPLACER par la valeur de PUBLIC_APP_URL en production
-Sitemap: https://ton-domaine.com/sitemap.xml
+Sitemap: https://vp-nflix-p0eabnnp5-vidocq17s-projects.vercel.app/

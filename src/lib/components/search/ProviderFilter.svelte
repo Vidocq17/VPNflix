@@ -7,14 +7,14 @@
 </script>
 
 <div class="space-y-2">
-	<h3 class="text-sm font-semibold text-[#e5e2e1]">Plateformes</h3>
+	<h3 class="text-xl font-bold text-on-surface">Plateformes</h3>
 	{#if providers.length === 0}
-		<p class="text-sm text-[#c4c5d9]/60">Aucune plateforme disponible.</p>
+		<p class="text-sm text-on-surface-variant/60">Aucune plateforme disponible.</p>
 	{:else}
-		<div class="flex flex-wrap gap-2">
+		<div class="flex max-h-64 flex-wrap gap-2 overflow-y-auto overflow-x-hidden pr-1">
 			{#each providers as provider (provider.id)}
 				<label
-					class="cursor-pointer rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-[#c4c5d9] transition has-[:checked]:border-[#2e5bff] has-[:checked]:bg-[#2e5bff]/20 has-[:checked]:text-[#e5e2e1]"
+					class="cursor-pointer rounded-full border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant transition has-[:checked]:border-primary-container has-[:checked]:bg-primary-container/20 has-[:checked]:text-on-surface"
 				>
 					<input
 						type="checkbox"

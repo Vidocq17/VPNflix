@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	groupWatchProvidersByProvider,
 	normalizeRegions,
-	normalizeSearchResults
+	normalizeSearchResults,
+	expandProviderIds,
+	normalizeSimilar,
+	prioritizeProviders
 } from './normalize';
 import type { TmdbSearchResponse, TmdbWatchProvidersResponse } from './tmdb';
 
@@ -138,5 +141,42 @@ describe('normalizeRegions', () => {
 		});
 
 		expect(regions.filter((c) => c.code === 'FR')).toEqual([{ code: 'FR', name: 'France' }]);
+	});
+});
+
+describe('prioritizeProviders / expandProviderIds', () => {
+	const p = (id: number, name: string) => ({ id, name, logoPath: null });
+	const input = [
+		p(1, 'Zed'),
+		p(15, 'Hulu'),
+		p(9, 'Amazon Prime Video'),
+		p(2, 'Alpha'),
+		p(8, 'Netflix'),
+		p(119, ' amazon prime video ')
+	];
+	it("fusionne les doublons de nom, remonte les principales, garde l'ordre du reste", () => {
+		const out = prioritizeProviders(input);
+		expect(out.map((x) => x.id)).toEqual([8, 119, 15, 1, 2]);
+		expect(out[1].ids).toEqual([9, 119]);
+		expect(input).toHaveLength(6); // pas de mutation
+	});
+	it('expand : id principal -> tous les ids equivalents', () => {
+		const out = prioritizeProviders(input);
+		expect(expandProviderIds(['119', '8', '119'], out)).toEqual([9, 119, 8]);
+		expect(expandProviderIds(['999'], out)).toEqual([999]);
+	});
+});
+
+describe('normalizeSimilar', () => {
+	it('force le mediaType, ignore les entrees invalides, max 12', () => {
+		const raw = Array.from({ length: 20 }, (_, i) => ({
+			id: i + 1,
+			name: `S${i}`,
+			poster_path: null
+		}));
+		const res = normalizeSimilar({ results: [{ id: 99, poster_path: null }, ...raw] }, 'tv');
+		expect(res).toHaveLength(12);
+		expect(res.every((r) => r.mediaType === 'tv')).toBe(true);
+		expect(normalizeSimilar(undefined, 'movie')).toEqual([]);
 	});
 });

@@ -26,6 +26,8 @@ export const load: PageLoad = async ({ url, fetch }) => {
 		: [];
 
 	let results: CatalogSearchResult[] = [];
+	let popularMovies: CatalogSearchResult[] = [];
+	let popularTv: CatalogSearchResult[] = [];
 	let errorMessage: string | null = null;
 
 	if (query) {
@@ -38,5 +40,25 @@ export const load: PageLoad = async ({ url, fetch }) => {
 		}
 	}
 
-	return { query, type, country, providers, results, errorMessage, countries, availableProviders };
+	if (!query) {
+		// Sections populaires de l'accueil ; un echec masque simplement la section.
+		const popular = async (t: 'movie' | 'tv'): Promise<CatalogSearchResult[]> => {
+			const res = await fetch(`/api/popular?type=${t}`);
+			return res.ok ? (await res.json()).results : [];
+		};
+		[popularMovies, popularTv] = await Promise.all([popular('movie'), popular('tv')]);
+	}
+
+	return {
+		query,
+		type,
+		country,
+		providers,
+		results,
+		errorMessage,
+		countries,
+		availableProviders,
+		popularMovies,
+		popularTv
+	};
 };

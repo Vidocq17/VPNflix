@@ -38,6 +38,11 @@ export interface TmdbSearchResultRaw {
 
 export interface TmdbSearchResponse {
 	results: TmdbSearchResultRaw[];
+	total_pages?: number;
+}
+
+export interface TmdbGenresResponse {
+	genres: { id: number; name: string }[];
 }
 
 export interface TmdbProviderRaw {
@@ -86,6 +91,16 @@ export function searchTv(query: string): Promise<TmdbSearchResponse> {
 	return tmdbFetch<TmdbSearchResponse>('/search/tv', { query });
 }
 
+// -- Populaires (accueil) --
+
+export function getPopularMovies(): Promise<TmdbSearchResponse> {
+	return tmdbFetch<TmdbSearchResponse>('/movie/popular');
+}
+
+export function getPopularTv(): Promise<TmdbSearchResponse> {
+	return tmdbFetch<TmdbSearchResponse>('/tv/popular');
+}
+
 // -- Details d'un titre (etape 11 : hero poster/titre/resume de la page detail) --
 
 export function getMovieDetails(movieId: number): Promise<TmdbSearchResultRaw> {
@@ -118,4 +133,23 @@ export function getMovieWatchProviderList(): Promise<TmdbProviderListResponse> {
 
 export function getTvWatchProviderList(): Promise<TmdbProviderListResponse> {
 	return tmdbFetch<TmdbProviderListResponse>('/watch/providers/tv');
+}
+
+// -- Explorer (pages /movies et /series) --
+
+export function discoverTitles(
+	type: 'movie' | 'tv',
+	params: Record<string, string>
+): Promise<TmdbSearchResponse> {
+	return tmdbFetch<TmdbSearchResponse>(`/discover/${type}`, params);
+}
+
+export function getGenres(type: 'movie' | 'tv'): Promise<TmdbGenresResponse> {
+	return tmdbFetch<TmdbGenresResponse>(`/genre/${type}/list`, { language: 'fr' });
+}
+
+// -- Titres similaires (page detail) --
+
+export function getSimilar(type: 'movie' | 'tv', id: number): Promise<TmdbSearchResponse> {
+	return tmdbFetch<TmdbSearchResponse>(`/${type}/${id}/similar`);
 }

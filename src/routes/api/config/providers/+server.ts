@@ -3,6 +3,7 @@ import {
 	getMovieWatchProviderList,
 	getTvWatchProviderList,
 	normalizeProviderList,
+	prioritizeProviders,
 	sortProvidersByName
 } from '$lib/catalog';
 import { BadRequest, callTmdb, publicHandler } from '$lib/server/response';
@@ -11,7 +12,7 @@ import { parse, providersConfigSchema, searchParamsObject } from '$lib/security/
 // Le parametre "country" est accepte mais sans effet pour l'instant : TMDB expose un
 // "watch_region" sur /watch/providers/movie|tv qui filtre la disponibilite, pas la liste
 // elle-meme. Comportement exact a clarifier plus tard si besoin (etape 16+).
-export const GET = publicHandler('config', 120, async ({ url }) => {
+export const GET = publicHandler('config', 300, async ({ url }) => {
 	const raw = searchParamsObject(url.searchParams);
 	const params = raw && parse(providersConfigSchema, raw);
 	if (!params) throw new BadRequest();
@@ -29,5 +30,5 @@ export const GET = publicHandler('config', 120, async ({ url }) => {
 			.map((provider) => [provider.id, provider])
 	);
 
-	return json({ providers: sortProvidersByName(Array.from(byId.values())) });
+	return json({ providers: prioritizeProviders(sortProvidersByName(Array.from(byId.values()))) });
 });
