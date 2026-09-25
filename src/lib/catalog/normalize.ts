@@ -7,6 +7,7 @@ import type {
 	TmdbRegionsResponse,
 	TmdbSearchResponse,
 	TmdbSearchResultRaw,
+	TmdbVideosResponse,
 	TmdbWatchProvidersResponse
 } from './tmdb';
 import type {
@@ -14,6 +15,7 @@ import type {
 	DiscoverFilters,
 	Genre,
 	ProviderAvailabilityGroup,
+	Trailer,
 	WatchCountry,
 	WatchProvider
 } from './types';
@@ -29,7 +31,7 @@ export function normalizeSearchResult(raw: TmdbSearchResultRaw): CatalogSearchRe
 	const dateStr = mediaType === 'movie' ? raw.release_date : raw.first_air_date;
 	const releaseYear = dateStr ? Number(dateStr.slice(0, 4)) : null;
 
-	return {
+	const result: CatalogSearchResult = {
 		id: raw.id,
 		mediaType,
 		title,
@@ -37,6 +39,11 @@ export function normalizeSearchResult(raw: TmdbSearchResultRaw): CatalogSearchRe
 		posterPath: raw.poster_path,
 		overview: raw.overview ?? ''
 	};
+	// Champs optionnels : absents (pas null) quand TMDB ne les fournit pas / note 0 = pas de vote.
+	if (raw.vote_average) result.voteAverage = Math.round(raw.vote_average * 10) / 10;
+	const genreIds = raw.genre_ids ?? raw.genres?.map((g) => g.id);
+	if (genreIds?.length) result.genreIds = genreIds;
+	return result;
 }
 
 export function normalizeSearchResults(
@@ -149,7 +156,16 @@ export function buildDiscoverParams(
 	f: DiscoverFilters
 ): Record<string, string> {
 	const dateKey = type === 'movie' ? 'primary_release_date' : 'first_air_date';
-	const p: Record<string, string> = { sort_by: 'popularity.desc', page: String(f.page) };
+	const [field, dir] = (f.sort ?? 'popularity.desc').split('.');
+	const p: Record<string, string> = {
+		sort_by: `${field === 'release' ? dateKey : field}.${dir}`,
+		page: String(f.page)
+	};
+	// Sans seuil de votes, le tri par note remonte des titres notes par 1 personne.
+	if (field === 'vote_average') p['vote_count.gte'] = '200';
+	// Tri par date decroissante : ecarte les titres pas encore sortis (sauf si yearTo est choisi).
+	if (f.sort === 'release.desc' && !f.yearTo)
+		p[`${dateKey}.lte`] = new Date().toISOString().slice(0, 10);
 	if (f.genres.length) p.with_genres = f.genres.join(',');
 	if (f.yearFrom) p[`${dateKey}.gte`] = `${f.yearFrom}-01-01`;
 	if (f.yearTo) p[`${dateKey}.lte`] = `${f.yearTo}-12-31`;
@@ -207,4 +223,61 @@ export function normalizeSimilar(
 	return normalizeSearchResults(response)
 		.map((r) => ({ ...r, mediaType }))
 		.slice(0, 12);
+}
+
+const YOUTUBE_KEY = /^[\w-]{11}$/;
+
+/** Meilleure video YouTube : trailer officiel > trailer > teaser ; null sinon. Cle validee (va dans un href). */
+export function pickTrailer(response: TmdbVideosResponse | undefined): Trailer | null {
+	const score = (v: { type?: string; official?: boolean }) =>
+		(v.type === 'Trailer' ? 2 : 1) * 2 + (v.official ? 1 : 0);
+	let best: { trailer: Trailer; score: number } | null = null;
+	for (const v of response?.results ?? []) {
+		if (v.site !== 'YouTube' || !v.key || !YOUTUBE_KEY.test(v.key)) continue;
+		if (v.type !== 'Trailer' && v.type !== 'Teaser') continue;
+		if (!best || score(v) > best.score)
+			best = {
+				trailer: { key: v.key, name: v.name?.slice(0, 200) || 'Bande-annonce' },
+				score: score(v)
+			};
+	}
+	return best?.trailer ?? null;
+}
+
+/** Offres d'un titre : code pays -> ids de plateformes (flatrate/rent/buy confondus). */
+export function offersByCountry(
+	response: TmdbWatchProvidersResponse | undefined
+): Record<string, number[]> {
+	return Object.fromEntries(
+		Object.entries(response?.results ?? {}).map(([code, offers]) => [
+			code.toUpperCase(),
+			collectProviders(offers).map((p) => p.provider_id)
+		])
+	);
+}
+
+/**
+ * Filtre des resultats de recherche selon leurs offres. `country` : titre disponible dans ce pays
+ * (sinon tous pays confondus). `providers` (OU) : au moins une de ces plateformes. `exclude` : un
+ * titre disparait seulement si TOUTES ses offres sont exclues (comme la fiche, qui masque les
+ * plateformes exclues) ; un titre sans offre n'est pas ecarte par `exclude` seul.
+ * `offers` : cle `${mediaType}:${id}` -> offres ; absent = lookup echoue -> titre ecarte.
+ */
+export function filterByAvailability(
+	results: CatalogSearchResult[],
+	offers: Map<string, Record<string, number[]> | null>,
+	f: { country?: string; providers: number[]; exclude: number[] }
+): CatalogSearchResult[] {
+	const country = f.country?.toUpperCase();
+	const wanted = new Set(f.providers);
+	const banned = new Set(f.exclude);
+	return results.filter((r) => {
+		const byCountry = offers.get(`${r.mediaType}:${r.id}`);
+		if (!byCountry) return false;
+		const all = country ? (byCountry[country] ?? []) : Object.values(byCountry).flat();
+		const kept = all.filter((id) => !banned.has(id));
+		if (wanted.size) return kept.some((id) => wanted.has(id));
+		if (country) return kept.length > 0;
+		return all.length === 0 || kept.length > 0;
+	});
 }

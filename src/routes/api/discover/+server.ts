@@ -21,6 +21,7 @@ export const GET = publicHandler('discover', 60, async ({ url }) => {
 		country: p.country,
 		providers: p.providers ?? [],
 		exclude: p.exclude ?? [],
+		sort: p.sort,
 		page
 	});
 	const response = await callTmdb(() => discoverTitles(p.type, params));

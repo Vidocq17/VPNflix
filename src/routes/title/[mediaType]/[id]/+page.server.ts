@@ -7,11 +7,13 @@ import { error } from '@sveltejs/kit';
 import {
 	getMovieDetails,
 	getSimilar,
+	getVideos,
 	getTvDetails,
 	normalizeSearchResult,
-	normalizeSimilar
+	normalizeSimilar,
+	pickTrailer
 } from '$lib/catalog';
-import type { CatalogSearchResult, ProviderAvailabilityGroup } from '$lib/catalog/types';
+import type { CatalogSearchResult, ProviderAvailabilityGroup, Trailer } from '$lib/catalog/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, fetch }) => {
@@ -44,13 +46,17 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		? (await providersResponse.json()).groups
 		: [];
 
-	// Similaires : une erreur TMDB masque simplement la section.
+	// Similaires et bande-annonce : une erreur TMDB masque simplement la section.
 	let similar: CatalogSearchResult[] = [];
-	try {
-		similar = normalizeSimilar(await getSimilar(mediaType, titleId), mediaType);
-	} catch {
-		// section masquee
-	}
+	let trailer: Trailer | null = null;
+	await Promise.all([
+		getSimilar(mediaType, titleId)
+			.then((r) => (similar = normalizeSimilar(r, mediaType)))
+			.catch(() => {}),
+		getVideos(mediaType, titleId)
+			.then((r) => (trailer = pickTrailer(r)))
+			.catch(() => {})
+	]);
 
-	return { title, groups, similar };
+	return { title, groups, similar, trailer };
 };

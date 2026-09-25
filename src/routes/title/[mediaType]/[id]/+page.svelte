@@ -13,7 +13,7 @@
 </svelte:head>
 
 <AppShell>
-	<TitleAvailability title={data.title} groups={data.groups} />
+	<TitleAvailability title={data.title} groups={data.groups} trailer={data.trailer} />
 	{#if data.similar.length > 0}
 		<section class="mx-auto max-w-[1440px] px-5 pb-16 md:px-16" aria-labelledby="similar-title">
 			<h2 id="similar-title" class="mb-6 text-3xl font-bold">Similaires</h2>

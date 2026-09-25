@@ -1,6 +1,13 @@
 // Chargement commun des pages /movies et /series (load universel : filtres lus dans l'URL).
 import { expandProviderIds } from '$lib/catalog/normalize';
-import type { CatalogSearchResult, Genre, WatchCountry, WatchProvider } from '$lib/catalog/types';
+import {
+	SORT_KEYS,
+	type CatalogSearchResult,
+	type Genre,
+	type SortKey,
+	type WatchCountry,
+	type WatchProvider
+} from '$lib/catalog/types';
 
 type Fetch = typeof fetch;
 
@@ -13,6 +20,9 @@ export async function browseLoad(type: 'movie' | 'tv', url: URL, fetch: Fetch) {
 	// Les plateformes n'ont de sens que dans un pays (watch_region).
 	const providers = country ? sp.getAll('providers') : [];
 	const exclude = country ? sp.getAll('exclude') : [];
+	// Tri : liste blanche (un tri inconnu retombe sur la popularite, comme le defaut de l'API).
+	const sortParam = sp.get('sort') as SortKey;
+	const sort: SortKey = SORT_KEYS.includes(sortParam) ? sortParam : 'popularity.desc';
 	const page = Math.max(1, Number(sp.get('page')) || 1);
 
 	const q = new URLSearchParams({ type });
@@ -20,6 +30,7 @@ export async function browseLoad(type: 'movie' | 'tv', url: URL, fetch: Fetch) {
 	if (yearFrom) q.set('yearFrom', yearFrom);
 	if (yearTo) q.set('yearTo', yearTo);
 	if (country) q.set('country', country);
+	if (sort !== 'popularity.desc') q.set('sort', sort);
 	if (page > 1) q.set('page', String(page));
 
 	const get = async <T>(path: string, key: string, fallback: T): Promise<T> => {
@@ -52,6 +63,7 @@ export async function browseLoad(type: 'movie' | 'tv', url: URL, fetch: Fetch) {
 		country,
 		providers,
 		exclude,
+		sort,
 		page,
 		genreList,
 		countries,

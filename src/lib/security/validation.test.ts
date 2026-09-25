@@ -27,6 +27,18 @@ describe('searchSchema', () => {
 	it('rejette les parametres dupliques', () => {
 		expect(searchParamsObject(new URLSearchParams('query=ab&query=cd'))).toBeNull();
 	});
+	it('filtres pays / plateformes / exclusions : convertis et bornes', () => {
+		expect(
+			parse(searchSchema, { query: 'ab', country: 'FR', providers: '8,9', exclude: '337' })
+		).toEqual({ query: 'ab', type: 'all', country: 'FR', providers: [8, 9], exclude: [337] });
+		const invalid: Record<string, string>[] = [
+			{ country: 'FRA' },
+			{ providers: '8,x' },
+			{ exclude: Array(201).fill('8').join(',') },
+			{ providers: Array(101).fill('8').join(',') }
+		];
+		for (const raw of invalid) expect(parse(searchSchema, { query: 'ab', ...raw })).toBeNull();
+	});
 });
 
 describe('watchProvidersSchema', () => {
@@ -102,10 +114,19 @@ describe('discoverSchema', () => {
 		{ type: 'tv', country: 'FRA' },
 		{ type: 'tv', providers: '8' }, // plateformes sans pays
 		{ type: 'tv', exclude: '8' }, // exclusions sans pays
+		{ type: 'tv', sort: 'name.asc' },
+		{ type: 'tv', sort: 'popularity.desc;drop' },
 		{ type: 'tv', page: '501' },
 		{ type: 'tv', page: '0' }
 	])('rejette %j', (raw) => {
 		expect(parse(discoverSchema, raw as Record<string, string>)).toBeNull();
+	});
+});
+
+describe('discoverSchema : tri', () => {
+	it('accepte la liste blanche', () => {
+		for (const sort of ['popularity.asc', 'vote_average.desc', 'release.asc'])
+			expect(parse(discoverSchema, { type: 'movie', sort })).toMatchObject({ sort });
 	});
 });
 

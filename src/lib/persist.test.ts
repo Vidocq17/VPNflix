@@ -4,6 +4,8 @@ import {
 	favorites,
 	loadBrowseFilters,
 	loadFilters,
+	seen,
+	watchlist,
 	saveBrowseFilters,
 	saveFilters
 } from './persist.svelte';
@@ -12,6 +14,9 @@ const store = new Map<string, string>();
 beforeEach(() => {
 	store.clear();
 	favorites.items = [];
+	watchlist.items = [];
+	seen.items = [];
+	seen.hide = false;
 	globalThis.localStorage = {
 		getItem: (k: string) => store.get(k) ?? null,
 		setItem: (k: string, v: string) => void store.set(k, v)
@@ -116,5 +121,51 @@ describe('favoris', () => {
 		store.set('vpnflix:favorites', '[{"id":"a"}]');
 		favorites.load();
 		expect(favorites.items).toEqual([]);
+	});
+});
+
+describe('filtres films/series : tri', () => {
+	it('le tri est optionnel (anciens filtres valides) et valide par liste blanche', () => {
+		const f = { genres: [], yearFrom: '', yearTo: '', country: '', providers: [] };
+		saveBrowseFilters('movies', { ...f, sort: 'vote_average.desc' });
+		expect(loadBrowseFilters('movies')?.sort).toBe('vote_average.desc');
+		store.set('vpnflix:filters:movies', JSON.stringify(f));
+		expect(loadBrowseFilters('movies')).toEqual(f);
+		store.set('vpnflix:filters:movies', JSON.stringify({ ...f, sort: 'x.desc' }));
+		expect(loadBrowseFilters('movies')).toBeNull();
+	});
+});
+
+describe('listes A voir / Vus', () => {
+	it('cles separees, aller-retour, corruption -> liste vide', () => {
+		watchlist.toggle(dune);
+		expect(favorites.has('movie', 1)).toBe(false);
+		expect(watchlist.has('movie', 1)).toBe(true);
+		expect(JSON.parse(store.get('vpnflix:watchlist')!)).toHaveLength(1);
+		watchlist.items = [];
+		watchlist.load();
+		expect(watchlist.items).toHaveLength(1);
+		store.set('vpnflix:seen', '{"nope":1}');
+		seen.load();
+		expect(seen.items).toEqual([]);
+	});
+	it('plafonne a 200 titres', () => {
+		watchlist.replace(
+			Array.from({ length: 250 }, (_, i) => ({ ...dune, id: i + 1, posterPath: null }))
+		);
+		expect(watchlist.items).toHaveLength(200);
+	});
+	it('masquer les vus : preference persistee, visible() filtre seulement si active', () => {
+		const grid = [dune, { ...dune, id: 2 }];
+		seen.toggle(dune);
+		expect(seen.visible(grid)).toHaveLength(2);
+		seen.setHide(true);
+		expect(seen.visible(grid).map((r) => r.id)).toEqual([2]);
+		seen.hide = false;
+		seen.load();
+		expect(seen.hide).toBe(true);
+		store.set('vpnflix:hide-seen', '"oui"');
+		seen.load();
+		expect(seen.hide).toBe(false);
 	});
 });

@@ -2,6 +2,17 @@ import { expect, test } from '@playwright/test';
 
 test.beforeEach(({ page }) => page.route('https://image.tmdb.org/**', (r) => r.abort()));
 
+// Les listes locales sont des menus depliants fermes ; on les ouvre des qu'ils apparaissent.
+test.beforeEach(({ page }) =>
+	page.addInitScript(() =>
+		new MutationObserver(() =>
+			document
+				.querySelectorAll('details[data-list]')
+				.forEach((d) => ((d as HTMLDetailsElement).open = true))
+		).observe(document, { childList: true, subtree: true })
+	)
+);
+
 test('accueil : films et series populaires', async ({ page }) => {
 	await page.goto('/');
 	const films = page.locator('section', {

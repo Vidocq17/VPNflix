@@ -34,11 +34,28 @@ export interface TmdbSearchResultRaw {
 	first_air_date?: string;
 	poster_path: string | null;
 	overview?: string;
+	vote_average?: number;
+	genre_ids?: number[];
+	/** Presents sur les fiches (/movie/{id}), pas sur les listes. */
+	genres?: { id: number; name: string }[];
 }
 
 export interface TmdbSearchResponse {
 	results: TmdbSearchResultRaw[];
 	total_pages?: number;
+}
+
+export interface TmdbVideoRaw {
+	site?: string;
+	key?: string;
+	name?: string;
+	type?: string;
+	official?: boolean;
+	published_at?: string;
+}
+
+export interface TmdbVideosResponse {
+	results?: TmdbVideoRaw[];
 }
 
 export interface TmdbGenresResponse {
@@ -152,4 +169,9 @@ export function getGenres(type: 'movie' | 'tv'): Promise<TmdbGenresResponse> {
 
 export function getSimilar(type: 'movie' | 'tv', id: number): Promise<TmdbSearchResponse> {
 	return tmdbFetch<TmdbSearchResponse>(`/${type}/${id}/similar`);
+}
+
+// -- Videos (bande-annonce de la page detail) --
+export function getVideos(type: 'movie' | 'tv', id: number): Promise<TmdbVideosResponse> {
+	return tmdbFetch<TmdbVideosResponse>(`/${type}/${id}/videos`);
 }

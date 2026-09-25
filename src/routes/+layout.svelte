@@ -3,12 +3,16 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { excluded, favorites } from '$lib/persist.svelte';
+	import { excluded, favorites, seen, watchlist } from '$lib/persist.svelte';
+	import { genreNames } from '$lib/genres.svelte';
 
 	let { children } = $props();
 	onMount(() => {
 		favorites.load();
 		excluded.load();
+		watchlist.load();
+		seen.load();
+		void genreNames.load();
 		document.documentElement.dataset.ready = ''; // signal d'hydratation pour les tests e2e
 	});
 	const desc =

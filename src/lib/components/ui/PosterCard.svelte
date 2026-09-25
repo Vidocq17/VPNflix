@@ -3,12 +3,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Film from 'lucide-svelte/icons/film';
-	import FavoriteButton from './FavoriteButton.svelte';
+	import Star from 'lucide-svelte/icons/star';
+	import ListButton from './ListButton.svelte';
+	import { genreNames } from '$lib/genres.svelte';
 	import type { CatalogSearchResult } from '$lib/catalog/types';
 
 	let { result }: { result: CatalogSearchResult } = $props();
 
 	const TMDB_POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w342';
+	let genres = $derived(genreNames.labels(result));
 	let mediaTypeLabel = $derived(result.mediaType === 'movie' ? 'Film' : 'Serie');
 </script>
 
@@ -43,13 +46,29 @@
 			>
 				{mediaTypeLabel}
 			</span>
+			{#if result.voteAverage}
+				<span
+					class="absolute bottom-3 left-3 flex items-center gap-1 rounded-md border border-white/10 bg-surface/80 px-2 py-1 text-xs font-semibold text-on-surface backdrop-blur-md"
+					aria-label={`Note ${result.voteAverage} sur 10`}
+				>
+					<Star class="size-3 fill-primary text-primary" />
+					{result.voteAverage.toFixed(1)}
+				</span>
+			{/if}
 		</div>
 		<div>
 			<h3 class="line-clamp-1 font-semibold text-on-surface">{result.title}</h3>
 			{#if result.releaseYear}<p class="text-sm text-on-surface-variant/70">
 					{result.releaseYear}
 				</p>{/if}
+			{#if genres.length}<p class="line-clamp-1 text-xs text-on-surface-variant/60">
+					{genres.join(' · ')}
+				</p>{/if}
 		</div>
 	</a>
-	<FavoriteButton {result} class="absolute left-3 top-3" />
+	<div class="absolute left-3 top-3 flex flex-col gap-2">
+		<ListButton {result} />
+		<ListButton {result} kind="watchlist" />
+		<ListButton {result} kind="seen" />
+	</div>
 </div>

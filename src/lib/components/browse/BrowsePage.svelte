@@ -9,10 +9,12 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
+	import HideSeenToggle from '$lib/components/ui/HideSeenToggle.svelte';
 	import PosterCard from '$lib/components/ui/PosterCard.svelte';
 	import {
 		excluded,
 		loadBrowseFilters,
+		seen,
 		saveBrowseFilters,
 		type BrowsePage
 	} from '$lib/persist.svelte';
@@ -26,7 +28,16 @@
 
 	const title = $derived(kind === 'movies' ? 'Films' : 'Series');
 	const path = $derived(kind === 'movies' ? resolve('/movies') : resolve('/series'));
-	const KEYS = ['genres', 'yearFrom', 'yearTo', 'country', 'providers'];
+	const KEYS = ['genres', 'yearFrom', 'yearTo', 'country', 'providers', 'sort'];
+	const SORTS: [string, string][] = [
+		['popularity.desc', 'Popularite (decroissante)'],
+		['popularity.asc', 'Popularite (croissante)'],
+		['vote_average.desc', "Note (meilleure d'abord)"],
+		['vote_average.asc', "Note (moins bonne d'abord)"],
+		['release.desc', "Date de sortie (recente d'abord)"],
+		['release.asc', "Date de sortie (ancienne d'abord)"]
+	];
+	const shown = $derived(seen.visible(data.results));
 
 	// Sauvegarde a chaque soumission (au moins un param de filtre dans l'URL) ; restauration
 	// quand la page arrive sans aucun param de filtre.
@@ -41,7 +52,8 @@
 				yearFrom: data.yearFrom,
 				yearTo: data.yearTo,
 				country: data.country,
-				providers: data.providers
+				providers: data.providers,
+				sort: data.sort
 			});
 		} else {
 			const saved = loadBrowseFilters(kind);
@@ -132,6 +144,18 @@
 							/>
 						</div>
 					</div>
+					<div class="space-y-2">
+						<label for="sort" class="block text-xl font-bold text-on-surface">Trier par</label>
+						<select
+							id="sort"
+							name="sort"
+							class="w-full rounded-xl border border-white/10 bg-surface-container px-4 py-3 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary-container"
+						>
+							{#each SORTS as [value, label] (value)}
+								<option {value} selected={data.sort === value}>{label}</option>
+							{/each}
+						</select>
+					</div>
 					<CountryFilter countries={data.countries} value={data.country} />
 					<ProviderFilter providers={data.availableProviders} selected={data.providers} />
 					<p class="text-xs text-on-surface-variant/60">
@@ -139,17 +163,18 @@
 						s'appliquent dans ce pays (choisis un pays pour les utiliser).
 					</p>
 					<Button type="submit" variant="primary" class="w-full">Appliquer</Button>
+					<HideSeenToggle />
 				</form>
 			</aside>
 
 			<section class="md:col-span-9" aria-label="Resultats">
 				{#if data.errorMessage}
 					<ErrorMessage message={data.errorMessage} />
-				{:else if data.results.length === 0}
+				{:else if shown.length === 0}
 					<EmptyState title="Aucun resultat" description="Essaie d'autres filtres." />
 				{:else}
 					<div class="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
-						{#each data.results as result (result.id)}
+						{#each shown as result (result.id)}
 							<PosterCard {result} />
 						{/each}
 					</div>

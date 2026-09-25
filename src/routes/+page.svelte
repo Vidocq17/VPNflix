@@ -12,27 +12,52 @@
 	import Compass from 'lucide-svelte/icons/compass';
 	import Button from '$lib/components/ui/Button.svelte';
 	import PosterCard from '$lib/components/ui/PosterCard.svelte';
-	import { favorites, loadFilters, saveFilters } from '$lib/persist.svelte';
+	import BackupPanel from '$lib/components/ui/BackupPanel.svelte';
+	import HideSeenToggle from '$lib/components/ui/HideSeenToggle.svelte';
+	import {
+		excluded,
+		favorites,
+		loadFilters,
+		saveFilters,
+		seen,
+		watchlist
+	} from '$lib/persist.svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const shown = $derived(seen.visible(data.results));
+	const asResults = (items: typeof favorites.items) =>
+		items.map((f) => ({ ...f, releaseYear: null, overview: '' }));
 
 	// Filtres : sauvegardes a chaque recherche (formulaire soumis = params `type` presents),
 	// restaures quand une recherche arrive sans filtres (ex. depuis la barre du hero).
+	// Exclusions globales : l'URL porte `exclude` (le load, universel, ne lit pas localStorage) ;
+	// le serveur s'en sert pour filtrer les resultats par disponibilite.
 	$effect(() => {
+		if (!data.query || !excluded.loaded) return;
 		const sp = page.url.searchParams;
-		if (!data.query || sp.has('type') || sp.has('country') || sp.has('providers')) return;
-		const saved = loadFilters();
-		if (!saved || (saved.type === 'all' && !saved.country && saved.providers.length === 0)) return;
-		const next = Object.entries({ query: data.query, type: saved.type, country: saved.country })
-			.concat(saved.providers.map((id) => ['providers', id]))
-			.map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-			.join('&');
+		const q = new SvelteURLSearchParams(sp);
+		let changed = false;
+		if (!sp.has('type') && !sp.has('country') && !sp.has('providers')) {
+			const saved = loadFilters();
+			if (saved && !(saved.type === 'all' && !saved.country && saved.providers.length === 0)) {
+				q.set('type', saved.type);
+				q.set('country', saved.country);
+				for (const id of saved.providers) q.append('providers', id);
+				changed = true;
+			}
+		}
+		if ([...sp.getAll('exclude')].sort().join(',') !== [...excluded.ids].sort().join(',')) {
+			q.delete('exclude');
+			for (const id of excluded.ids) q.append('exclude', id);
+			changed = true;
+		}
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() applique a la base, query ajoutee apres
-		goto(`${resolve('/')}?${next}`, { replaceState: true });
+		if (changed) goto(`${resolve('/')}?${q}`, { replaceState: true });
 	});
 	$effect(() => {
 		if (data.query && page.url.searchParams.has('type')) {
@@ -48,6 +73,8 @@
 
 <AppShell>
 	<form method="GET">
+		<!-- Exclusions locales portees par la recherche (evite une navigation de resynchronisation). -->
+		{#each excluded.ids as id (id)}<input type="hidden" name="exclude" value={id} />{/each}
 		{#if !data.query}
 			<section class="relative flex min-h-[640px] items-center overflow-hidden pt-20">
 				<div
@@ -84,12 +111,34 @@
 					</section>
 				{/if}
 			{/snippet}
-			{@render grid(
-				'Mes favoris',
-				favorites.items.map((f) => ({ ...f, releaseYear: null, overview: '' }))
-			)}
-			{@render grid('Films populaires', data.popularMovies)}
-			{@render grid('Series populaires', data.popularTv)}
+			<div class="mx-auto max-w-[1440px] px-5 pb-6 md:px-16"><HideSeenToggle /></div>
+			{@render grid('Films populaires', seen.visible(data.popularMovies))}
+			{@render grid('Series populaires', seen.visible(data.popularTv))}
+
+			<!-- Listes locales : menus depliants (fermes par defaut) sous les populaires. -->
+			{#snippet list(title: string, items: typeof data.popularMovies)}
+				{#if items.length > 0}
+					<section class="mx-auto max-w-[1440px] px-5 pb-4 md:px-16">
+						<details data-list class="rounded-2xl border border-white/10 bg-white/5 p-4">
+							<summary class="cursor-pointer">
+								<h2 class="inline text-2xl font-bold">{title}</h2>
+								<span class="ml-2 text-on-surface-variant">({items.length})</span>
+							</summary>
+							<div class="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+								{#each items as result (`${result.mediaType}-${result.id}`)}
+									<PosterCard {result} />
+								{/each}
+							</div>
+						</details>
+					</section>
+				{/if}
+			{/snippet}
+			{@render list('Mes favoris', asResults(favorites.items))}
+			{@render list('A voir', asResults(watchlist.items))}
+			{@render list('Vus', asResults(seen.items))}
+			<div class="pb-8"></div>
+
+			<BackupPanel />
 
 			<section class="mx-auto grid max-w-[1440px] gap-6 px-5 pb-20 md:grid-cols-3 md:px-16">
 				<GlassPanel class="flex flex-col gap-3 p-8 md:col-span-2">
@@ -122,19 +171,16 @@
 							selectedProviders={data.providers}
 						/>
 						<Button type="submit" variant="primary" class="mt-6 w-full">Rechercher</Button>
+						<div class="mt-4"><HideSeenToggle /></div>
 					</aside>
 
 					<div class="md:col-span-9">
-						{#if !data.errorMessage && data.results.length > 0}
+						{#if !data.errorMessage && shown.length > 0}
 							<p class="mb-6 text-on-surface-variant">
-								<strong class="text-on-surface">{data.results.length}</strong> resultats
+								<strong class="text-on-surface">{shown.length}</strong> resultats
 							</p>
 						{/if}
-						<SearchResultList
-							results={data.results}
-							query={data.query}
-							errorMessage={data.errorMessage}
-						/>
+						<SearchResultList results={shown} query={data.query} errorMessage={data.errorMessage} />
 					</div>
 				</div>
 			</main>

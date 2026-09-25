@@ -1,5 +1,6 @@
 // Validation des entrees des endpoints publics (etape 16). Pur zod : testable sans SvelteKit.
 import { z } from 'zod';
+import { SORT_KEYS } from '$lib/catalog/types';
 
 const mediaType = z.enum(['movie', 'tv']);
 const searchType = z.enum(['movie', 'tv', 'all']).default('all');
@@ -13,9 +14,15 @@ const csv = <O>(item: z.ZodType<O, string>, max: number) =>
 		.transform((s) => s.split(',').map((v) => v.trim()))
 		.pipe(z.array(item).max(max));
 
+const country = z.string().regex(/^[A-Za-z]{2}$/);
+
+// country/providers/exclude filtrent les resultats par disponibilite (voir server/availability.ts).
 export const searchSchema = z.strictObject({
 	query: z.string().trim().min(2).max(80),
-	type: searchType
+	type: searchType,
+	country: country.optional(),
+	providers: csv(positiveInt, 100).optional(),
+	exclude: csv(positiveInt, 200).optional()
 });
 
 export const providersConfigSchema = z.strictObject({
@@ -45,12 +52,10 @@ export const discoverSchema = z
 		genres: csv(positiveInt, 20).optional(),
 		yearFrom: year.optional(),
 		yearTo: year.optional(),
-		country: z
-			.string()
-			.regex(/^[A-Za-z]{2}$/)
-			.optional(),
+		country: country.optional(),
 		providers: csv(positiveInt, 100).optional(),
 		exclude: csv(positiveInt, 200).optional(),
+		sort: z.enum(SORT_KEYS).optional(),
 		page: positiveInt.pipe(z.number().max(500)).optional()
 	})
 	.refine((v) => !(v.providers?.length || v.exclude?.length) || v.country) // par pays (watch_region)

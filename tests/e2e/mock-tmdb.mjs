@@ -11,14 +11,18 @@ const inception = {
 	title: 'Inception',
 	release_date: '2010-07-16',
 	poster_path: null,
-	overview: 'Un reve dans un reve.'
+	overview: 'Un reve dans un reve.',
+	vote_average: 8.36,
+	genre_ids: [28]
 };
 const bb = {
 	id: 1396,
 	name: 'Breaking Bad',
 	first_air_date: '2008-01-20',
 	poster_path: null,
-	overview: 'Un prof de chimie.'
+	overview: 'Un prof de chimie.',
+	vote_average: 8.9,
+	genre_ids: [18]
 };
 
 const dune = {
@@ -26,14 +30,18 @@ const dune = {
 	title: 'Dune Deuxieme Partie',
 	release_date: '2024-02-27',
 	poster_path: null,
-	overview: ''
+	overview: '',
+	vote_average: 8.2,
+	genre_ids: [28, 35]
 };
 const severance = {
 	id: 95396,
 	name: 'Severance',
 	first_air_date: '2022-02-17',
 	poster_path: null,
-	overview: ''
+	overview: '',
+	vote_average: 0, // pas de vote : aucune note affichee
+	genre_ids: [18]
 };
 
 const routes = {
@@ -47,7 +55,23 @@ const routes = {
 			{ ...bb, media_type: 'tv' }
 		]
 	},
-	'/movie/27205': inception,
+	// La fiche (/movie/{id}) renvoie `genres` ([{id,name}]) et non `genre_ids`.
+	'/movie/27205': { ...inception, genre_ids: undefined, genres: [{ id: 28, name: 'Action' }] },
+	// Videos : Vimeo et clip ignores ; trailer officiel prefere au teaser. /tv/1396/videos -> 404.
+	'/movie/27205/videos': {
+		results: [
+			{ site: 'Vimeo', key: 'vimeovimeo1', type: 'Trailer', official: true },
+			{ site: 'YouTube', key: 'teaser_____', type: 'Teaser', official: true },
+			{ site: 'YouTube', key: 'clip_______', type: 'Clip', official: true },
+			{
+				site: 'YouTube',
+				key: 'YoHD9XEInc0',
+				type: 'Trailer',
+				official: true,
+				name: 'Official Trailer'
+			}
+		]
+	},
 	'/movie/27205/similar': { results: [dune] },
 	'/tv/1396/similar': { results: [severance] },
 	'/tv/1396': bb,
@@ -75,7 +99,9 @@ const routes = {
 const discover = (type, url) => {
 	const q = url.searchParams;
 	const [a, b] = type === 'movie' ? [dune, inception] : [severance, bb];
-	const all = q.get('with_genres') === '28' ? [a] : q.get('page') === '2' ? [b] : [a, b];
+	let all = q.get('with_genres') === '28' ? [a] : q.get('page') === '2' ? [b] : [a, b];
+	// Le tri recu de l'app (sort_by) est applique : *.asc inverse l'ordre.
+	if ((q.get('sort_by') ?? '').endsWith('.asc')) all = [...all].reverse();
 	return { results: all, total_pages: 2, debug_params: Object.fromEntries(q) };
 };
 const genres = (type) => ({

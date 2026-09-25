@@ -1,3 +1,4 @@
+import { expandProviderIds } from '$lib/catalog/normalize';
 import type { PageLoad } from './$types';
 import type { CatalogSearchResult, WatchCountry, WatchProvider } from '$lib/catalog/types';
 
@@ -13,6 +14,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 		: 'all';
 	const country = url.searchParams.get('country') ?? '';
 	const providers = url.searchParams.getAll('providers');
+	const exclude = url.searchParams.getAll('exclude');
 
 	const [countriesResponse, providersResponse] = await Promise.all([
 		fetch('/api/config/countries'),
@@ -32,6 +34,11 @@ export const load: PageLoad = async ({ url, fetch }) => {
 
 	if (query) {
 		const searchParams = new URLSearchParams({ query, type });
+		// Filtres de disponibilite appliques cote serveur (un filtre = tous les ids TMDB equivalents).
+		if (country) searchParams.set('country', country);
+		if (providers.length)
+			searchParams.set('providers', expandProviderIds(providers, availableProviders).join(','));
+		if (exclude.length) searchParams.set('exclude', exclude.join(','));
 		const response = await fetch(`/api/search?${searchParams}`);
 		if (response.ok) {
 			results = (await response.json()).results;
@@ -54,6 +61,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 		type,
 		country,
 		providers,
+		exclude,
 		results,
 		errorMessage,
 		countries,

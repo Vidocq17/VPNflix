@@ -1,14 +1,17 @@
 // Persistance localStorage cote client uniquement (aucun acces au module hors navigateur, tout est
 // en try/catch). Les stores sont vides au SSR ; `load()` est appele au montage (+layout.svelte).
 import { z } from 'zod';
-import type { CatalogSearchResult } from '$lib/catalog/types';
+import { SORT_KEYS, type CatalogSearchResult } from '$lib/catalog/types';
 
 const FILTERS_KEY = 'vpnflix:filters';
 const BROWSE_KEY = (page: BrowsePage) => `vpnflix:filters:${page}`;
 export const MAX_EXCLUDED = 200; // = limite zod de `exclude` (validation.ts)
 const EXCLUDED_KEY = 'vpnflix:excluded-providers';
 const FAVORITES_KEY = 'vpnflix:favorites';
-const MAX_FAVORITES = 200;
+const WATCHLIST_KEY = 'vpnflix:watchlist';
+const SEEN_KEY = 'vpnflix:seen';
+const HIDE_SEEN_KEY = 'vpnflix:hide-seen';
+export const MAX_LIST = 200;
 
 export const filtersSchema = z.object({
 	type: z.enum(['all', 'movie', 'tv']),
@@ -24,7 +27,9 @@ export const browseFiltersSchema = z.object({
 	yearFrom: z.string().regex(/^((19|20)\d{2})?$/),
 	yearTo: z.string().regex(/^((19|20)\d{2})?$/),
 	country: z.string().regex(/^([A-Za-z]{2})?$/),
-	providers: z.array(z.string().regex(/^[1-9]\d{0,9}$/)).max(100)
+	providers: z.array(z.string().regex(/^[1-9]\d{0,9}$/)).max(100),
+	// optionnel : les filtres sauvegardes avant l'ajout du tri restent valides
+	sort: z.enum(SORT_KEYS).optional()
 });
 export type BrowseFilters = z.infer<typeof browseFiltersSchema>;
 
@@ -60,12 +65,20 @@ export const saveFilters = (filters: SavedFilters) => write(FILTERS_KEY, filters
 export const loadBrowseFilters = (page: BrowsePage) => read(BROWSE_KEY(page), browseFiltersSchema);
 export const saveBrowseFilters = (page: BrowsePage, f: BrowseFilters) => write(BROWSE_KEY(page), f);
 
-class Favorites {
+export const favoritesSchema = z.array(favoriteSchema).max(MAX_LIST);
+
+// Liste de titres persistee (favoris, "A voir", "Vus") : meme forme, une cle localStorage par liste.
+class TitleList {
 	items = $state<Favorite[]>([]);
+	#key: string;
+
+	constructor(key: string) {
+		this.#key = key;
+	}
 
 	load() {
 		// Une entree invalide invalide toute la liste (donnees corrompues -> on repart de zero).
-		this.items = read(FAVORITES_KEY, z.array(favoriteSchema).max(MAX_FAVORITES)) ?? [];
+		this.items = read(this.#key, favoritesSchema) ?? [];
 	}
 
 	has(mediaType: string, id: number) {
@@ -73,17 +86,47 @@ class Favorites {
 	}
 
 	toggle(r: Pick<CatalogSearchResult, 'mediaType' | 'id' | 'title' | 'posterPath'>) {
-		this.items = this.has(r.mediaType, r.id)
-			? this.items.filter((f) => !(f.mediaType === r.mediaType && f.id === r.id))
-			: [
-					{ mediaType: r.mediaType, id: r.id, title: r.title, posterPath: r.posterPath },
-					...this.items
-				].slice(0, MAX_FAVORITES);
-		write(FAVORITES_KEY, this.items);
+		this.replace(
+			this.has(r.mediaType, r.id)
+				? this.items.filter((f) => !(f.mediaType === r.mediaType && f.id === r.id))
+				: [
+						{ mediaType: r.mediaType, id: r.id, title: r.title, posterPath: r.posterPath },
+						...this.items
+					]
+		);
+	}
+
+	/** Remplace la liste (import) ; plafonnee a MAX_LIST. */
+	replace(items: Favorite[]) {
+		this.items = items.slice(0, MAX_LIST);
+		write(this.#key, this.items);
 	}
 }
 
-export const favorites = new Favorites();
+export const favorites = new TitleList(FAVORITES_KEY);
+export const watchlist = new TitleList(WATCHLIST_KEY);
+
+class SeenList extends TitleList {
+	/** Masque les titres vus dans les grilles (preference persistee). */
+	hide = $state(false);
+
+	load() {
+		super.load();
+		this.hide = read(HIDE_SEEN_KEY, z.boolean()) ?? false;
+	}
+
+	setHide(hide: boolean) {
+		this.hide = hide;
+		write(HIDE_SEEN_KEY, hide);
+	}
+
+	/** Grille filtree : retire les titres vus si `hide`. */
+	visible<T extends { mediaType: string; id: number }>(items: T[]): T[] {
+		return this.hide ? items.filter((r) => !this.has(r.mediaType, r.id)) : items;
+	}
+}
+
+export const seen = new SeenList(SEEN_KEY);
 
 export const excludedSchema = z.array(z.string().regex(/^[1-9]\d{0,9}$/)).max(MAX_EXCLUDED);
 
@@ -118,7 +161,12 @@ class Excluded {
 	}
 
 	clear() {
-		this.ids = [];
+		this.replace([]);
+	}
+
+	/** Remplace les exclusions (import) ; plafonne a MAX_EXCLUDED. */
+	replace(ids: string[]) {
+		this.ids = ids.slice(0, MAX_EXCLUDED);
 		write(EXCLUDED_KEY, this.ids);
 	}
 }

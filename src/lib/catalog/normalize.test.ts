@@ -5,7 +5,11 @@ import {
 	normalizeSearchResults,
 	expandProviderIds,
 	normalizeSimilar,
-	prioritizeProviders
+	prioritizeProviders,
+	buildDiscoverParams,
+	filterByAvailability,
+	offersByCountry,
+	pickTrailer
 } from './normalize';
 import type { TmdbSearchResponse, TmdbWatchProvidersResponse } from './tmdb';
 
@@ -178,5 +182,112 @@ describe('normalizeSimilar', () => {
 		expect(res).toHaveLength(12);
 		expect(res.every((r) => r.mediaType === 'tv')).toBe(true);
 		expect(normalizeSimilar(undefined, 'movie')).toEqual([]);
+	});
+});
+
+describe('note et genres', () => {
+	const base = { id: 1, title: 'X', poster_path: null };
+	it('ajoute voteAverage (arrondie) et genreIds quand presents', () => {
+		const [r] = normalizeSearchResults({
+			results: [{ ...base, vote_average: 7.8456, genre_ids: [28, 35] }]
+		});
+		expect(r.voteAverage).toBe(7.8);
+		expect(r.genreIds).toEqual([28, 35]);
+	});
+	it('fiche : genres [{id,name}] -> genreIds ; note 0 ou absente -> champs absents', () => {
+		const [r] = normalizeSearchResults({
+			results: [{ ...base, vote_average: 0, genres: [{ id: 18, name: 'Drame' }] }]
+		});
+		expect(r.genreIds).toEqual([18]);
+		expect('voteAverage' in r).toBe(false);
+		const [bare] = normalizeSearchResults({ results: [base] });
+		expect(Object.keys(bare)).not.toContain('genreIds');
+	});
+});
+
+describe('buildDiscoverParams : tri', () => {
+	const f = { genres: [], providers: [], page: 1 };
+	it('defaut popularite ; note avec seuil de votes ; release -> champ date du type', () => {
+		expect(buildDiscoverParams('movie', f).sort_by).toBe('popularity.desc');
+		const note = buildDiscoverParams('tv', { ...f, sort: 'vote_average.asc' });
+		expect(note.sort_by).toBe('vote_average.asc');
+		expect(note['vote_count.gte']).toBe('200');
+		expect(buildDiscoverParams('movie', { ...f, sort: 'release.asc' }).sort_by).toBe(
+			'primary_release_date.asc'
+		);
+		const recent = buildDiscoverParams('tv', { ...f, sort: 'release.desc' });
+		expect(recent.sort_by).toBe('first_air_date.desc');
+		expect(recent['first_air_date.lte']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		const bornee = buildDiscoverParams('tv', { ...f, sort: 'release.desc', yearTo: 2010 });
+		expect(bornee['first_air_date.lte']).toBe('2010-12-31');
+	});
+});
+
+describe('pickTrailer', () => {
+	const yt = (o: object) => ({ site: 'YouTube', key: 'abcdefghijk', type: 'Trailer', ...o });
+	it('prefere trailer officiel > trailer > teaser, ignore le reste', () => {
+		expect(
+			pickTrailer({
+				results: [
+					yt({ type: 'Teaser', official: true, key: 'teaser_____' }),
+					{ site: 'Vimeo', key: 'vimeovimeo1', type: 'Trailer', official: true },
+					yt({ key: 'trailer_no_', official: false }),
+					yt({ key: 'trailer_off', official: true, name: 'Officiel' }),
+					yt({ type: 'Clip', key: 'clip_______' })
+				]
+			})
+		).toEqual({ key: 'trailer_off', name: 'Officiel' });
+		expect(pickTrailer({ results: [yt({ type: 'Teaser' })] })?.key).toBe('abcdefghijk');
+	});
+	it('cle invalide (injection), aucune video ou reponse vide -> null', () => {
+		expect(pickTrailer({ results: [yt({ key: '"><script>' })] })).toBeNull();
+		expect(pickTrailer({ results: [yt({ key: 'short' })] })).toBeNull();
+		expect(pickTrailer({ results: [] })).toBeNull();
+		expect(pickTrailer(undefined)).toBeNull();
+	});
+});
+
+describe('filterByAvailability', () => {
+	const r = (id: number) => ({
+		id,
+		mediaType: 'movie' as const,
+		title: String(id),
+		releaseYear: null,
+		posterPath: null,
+		overview: ''
+	});
+	const offers = new Map<string, Record<string, number[]> | null>([
+		['movie:1', { FR: [8, 9], US: [8] }],
+		['movie:2', { FR: [8] }],
+		['movie:3', {}],
+		['movie:4', null]
+	]);
+	const all = [1, 2, 3, 4].map(r);
+	const ids = (f: Parameters<typeof filterByAvailability>[2]) =>
+		filterByAvailability(all, offers, f).map((x) => x.id);
+	it('pays : disponible dans le pays ; sans filtre de pays, titres sans offre gardes', () => {
+		expect(ids({ country: 'fr', providers: [], exclude: [] })).toEqual([1, 2]);
+		expect(ids({ country: 'US', providers: [], exclude: [] })).toEqual([1]);
+		expect(ids({ providers: [], exclude: [] })).toEqual([1, 2, 3]); // 4 = lookup echoue
+	});
+	it('plateformes (OU) dans le pays', () => {
+		expect(ids({ country: 'FR', providers: [9], exclude: [] })).toEqual([1]);
+		expect(ids({ country: 'FR', providers: [9, 8], exclude: [] })).toEqual([1, 2]);
+		expect(ids({ providers: [9], exclude: [] })).toEqual([1]);
+	});
+	it('exclusions : ecarte seulement si toutes les offres sont exclues, plateforme exclue non comptee', () => {
+		expect(ids({ country: 'FR', providers: [], exclude: [8] })).toEqual([1]);
+		expect(ids({ providers: [], exclude: [8] })).toEqual([1, 3]);
+		expect(ids({ country: 'FR', providers: [8], exclude: [8] })).toEqual([]);
+	});
+});
+
+describe('offersByCountry', () => {
+	it('code pays -> ids de plateformes, tous types confondus, sans doublon', () => {
+		const p = (id: number) => ({ provider_id: id, provider_name: 'x', logo_path: null });
+		expect(
+			offersByCountry({ id: 1, results: { fr: { flatrate: [p(8)], rent: [p(8), p(9)] } } })
+		).toEqual({ FR: [8, 9] });
+		expect(offersByCountry(undefined)).toEqual({});
 	});
 });

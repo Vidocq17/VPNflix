@@ -1,16 +1,27 @@
 <!-- Hero (poster/titre/metadata/resume) + disponibilites par provider/pays (etape 11).
-     Pas d'action trailer (hors MVP). -->
+     Bande-annonce : lien YouTube. -->
 <script lang="ts">
 	import Film from 'lucide-svelte/icons/film';
 	import Info from 'lucide-svelte/icons/info';
-	import FavoriteButton from '$lib/components/ui/FavoriteButton.svelte';
+	import Play from 'lucide-svelte/icons/play';
+	import Star from 'lucide-svelte/icons/star';
+	import ListButton from '$lib/components/ui/ListButton.svelte';
+	import { genreNames } from '$lib/genres.svelte';
 	import WatchProviderGroup from './WatchProviderGroup.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { excluded } from '$lib/persist.svelte';
-	import type { CatalogSearchResult, ProviderAvailabilityGroup } from '$lib/catalog/types';
+	import type { CatalogSearchResult, ProviderAvailabilityGroup, Trailer } from '$lib/catalog/types';
 
-	let { title, groups }: { title: CatalogSearchResult; groups: ProviderAvailabilityGroup[] } =
-		$props();
+	let {
+		title,
+		groups,
+		trailer = null
+	}: {
+		title: CatalogSearchResult;
+		groups: ProviderAvailabilityGroup[];
+		trailer?: Trailer | null;
+	} = $props();
+	let genres = $derived(genreNames.labels(title, 5));
 
 	// Plateformes exclues masquees ; toutes exclues -> meme message vide.
 	let visible = $derived(groups.filter((g) => !excluded.has(g.provider.id)));
@@ -59,9 +70,46 @@
 					<span class="text-sm text-on-surface-variant"
 						>{title.releaseYear ?? 'Annee inconnue'}</span
 					>
+					{#if title.voteAverage}
+						<span class="flex items-center gap-1 text-sm text-on-surface-variant">
+							<Star class="size-4 fill-primary text-primary" />
+							<span aria-label={`Note ${title.voteAverage} sur 10`}
+								>{title.voteAverage.toFixed(1)}</span
+							>
+						</span>
+					{/if}
 				</div>
 				<h1 class="text-4xl font-extrabold tracking-tight md:text-5xl">{title.title}</h1>
-				<FavoriteButton result={title} labelled class="self-start" />
+				{#if genres.length}
+					<ul class="flex flex-wrap gap-2" aria-label="Genres">
+						{#each genres as genre (genre)}
+							<li
+								class="rounded-full border border-outline-variant px-3 py-1 text-sm text-on-surface-variant"
+							>
+								{genre}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				<div class="flex flex-wrap gap-3">
+					<ListButton result={title} labelled />
+					<ListButton result={title} kind="watchlist" labelled />
+					<ListButton result={title} kind="seen" labelled />
+					{#if trailer}
+						<!-- Lien simple vers YouTube (pas d'iframe : aucune CSP frame-src a ouvrir). -->
+						<a
+							href={`https://www.youtube.com/watch?v=${trailer.key}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="flex items-center gap-2 rounded-full border border-white/10 bg-surface/80 px-4 py-2 text-sm font-medium text-on-surface backdrop-blur-md transition hover:border-primary-container"
+						>
+							<Play class="size-4" /> Bande-annonce
+							<span class="sr-only"
+								>({trailer.name}, s'ouvre sur YouTube dans un nouvel onglet)</span
+							>
+						</a>
+					{/if}
+				</div>
 				{#if title.overview}
 					<p class="max-w-2xl text-lg leading-relaxed text-on-surface-variant">{title.overview}</p>
 				{/if}
